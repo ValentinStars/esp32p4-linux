@@ -1,0 +1,27 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.bin
+*.tar.*
+*.iso
+*.dtb
+
+# Exceptions: keep prebuilt firmware/dtb if explicitly checked in
+!bootloader/main/test-sv32.bin
+
+# Toolchains and downloaded sources
+tools/riscv32*
+tools/*.tar.*
+tools/*.tar.bz2
+tools/*.tar.xz
+dl/
+buildroot*/
+linux-*/
+
+# Logs and temporary files
+*.log
+*.tmp
+.cache/
+sdkconfig.old
