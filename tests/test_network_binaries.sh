@@ -44,8 +44,18 @@ check_binary() {
 check_binary "$TOOLS_DIR/nc"
 check_binary "$TOOLS_DIR/ncat"
 check_binary "$TOOLS_DIR/nmap"
+check_binary "$TOOLS_DIR/fastfetch"
+check_binary "$TOOLS_DIR/flashfetch"
+
+echo -n "[*] Проверка neofetch (bash script) ... "
+if [ -f "$TOOLS_DIR/neofetch" ] && head -n 1 "$TOOLS_DIR/neofetch" | grep -q "bash"; then
+    echo "✓ OK (Официальный upstream neofetch bash)"
+else
+    echo "ОШИБКА: neofetch не найден или поврежден"
+    exit 1
+fi
 
 echo ""
 echo "=========================================================="
-echo "✓ Все официальные сетевые утилиты успешно проверены!"
+echo "✓ Все официальные утилиты (fetch + network) успешно проверены!"
 echo "=========================================================="
