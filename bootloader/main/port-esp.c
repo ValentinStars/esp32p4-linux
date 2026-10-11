@@ -369,25 +369,70 @@ int load_images(int ram_size, int *kern_len)
         return 0;
 }
 
+#include <dirent.h>
+#include "driver/gpio.h"
+#include "sd_pwr_ctrl_by_on_chip_ldo.h"
+
 static sdmmc_card_t *s_sd_card = NULL;
 
 int sdcard_init(void)
 {
         printf("\n=== Initializing MicroSD (SDMMC Slot 1) ===\n");
+
+        // 1. Включение питания слота MicroSD (P-MOSFET AO3401 на GPIO45: LOW = 3.3V ON)
+        gpio_config_t pwr_conf = {
+                .pin_bit_mask = (1ULL << GPIO_NUM_45),
+                .mode = GPIO_MODE_OUTPUT,
+                .pull_up_en = GPIO_PULLUP_DISABLE,
+                .pull_down_en = GPIO_PULLDOWN_DISABLE,
+                .intr_type = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&pwr_conf);
+        gpio_set_level(GPIO_NUM_45, 0);
+        vTaskDelay(pdMS_TO_TICKS(150));
+
+        sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+        host.slot = SDMMC_HOST_SLOT_1;
+        host.max_freq_khz = SDMMC_FREQ_DEFAULT;
+
+        // 2. Официальный контроллер питания SDMMC через LDO 4 на ESP32-P4
+        sd_pwr_ctrl_ldo_config_t ldo_config = {
+                .ldo_chan_id = 4,
+        };
+        sd_pwr_ctrl_handle_t pwr_ctrl_handle = NULL;
+        esp_err_t pwr_err = sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
+        if (pwr_err == ESP_OK) {
+                host.pwr_ctrl_handle = pwr_ctrl_handle;
+                printf("✓ On-chip LDO 4 power control linked to SDMMC host\n");
+        } else {
+                printf("! Warning: sd_pwr_ctrl_new_on_chip_ldo returned %s\n", esp_err_to_name(pwr_err));
+        }
+
         esp_vfs_fat_sdmmc_mount_config_t mount_config = {
                 .format_if_mount_failed = false,
                 .max_files = 5,
                 .allocation_unit_size = 16 * 1024
         };
-        sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-        host.slot = SDMMC_HOST_SLOT_1;
-        host.max_freq_khz = SDMMC_FREQ_DEFAULT;
 
+        // 3. Распиновка SDMMC Slot 1 на плате Waveshare ESP32-P4:
+        // CLK=43, CMD=44, D0=39, D1=40, D2=41, D3=42
         sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+        slot_config.clk = GPIO_NUM_43;
+        slot_config.cmd = GPIO_NUM_44;
+        slot_config.d0  = GPIO_NUM_39;
+        slot_config.d1  = GPIO_NUM_40;
+        slot_config.d2  = GPIO_NUM_41;
+        slot_config.d3  = GPIO_NUM_42;
         slot_config.width = 4;
         slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
 
         esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &s_sd_card);
+        if (ret != ESP_OK) {
+                // Повторная попытка в 1-битном режиме
+                slot_config.width = 1;
+                ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &s_sd_card);
+        }
+
         if (ret != ESP_OK) {
                 printf("MicroSD: No card detected or mount failed (%s)\n", esp_err_to_name(ret));
                 return -1;
@@ -395,6 +440,21 @@ int sdcard_init(void)
 
         printf("✓ MicroSD Card Mounted successfully at /sdcard!\n");
         sdmmc_card_print_info(stdout, s_sd_card);
+
+        // Список файлов в корне MicroSD
+        DIR *d = opendir("/sdcard");
+        if (d) {
+                printf("\n--- Файлы на карте памяти MicroSD (/sdcard) ---\n");
+                struct dirent *de;
+                int count = 0;
+                while ((de = readdir(d)) != NULL) {
+                        printf("  [%s] %s\n", (de->d_type == DT_DIR) ? "DIR " : "FILE", de->d_name);
+                        count++;
+                }
+                closedir(d);
+                if (count == 0) printf("  (Карта пуста)\n");
+                printf("------------------------------------------------\n\n");
+        }
         return 0;
 }
 

@@ -37,5 +37,8 @@ echo "Упаковка файлов в CPIO..."
 echo "Сжатие архива с помощью gzip..."
 gzip -9 -c "$OUT_CPIO" > "$OUT_CPIO_GZ"
 
-echo "✓ Initramfs успешно собран:"
-ls -lh "$OUT_CPIO" "$OUT_CPIO_GZ"
+echo "Инъекция сжатого initramfs в ядро Linux..."
+python3 "$SCRIPT_DIR/inject_initramfs.py"
+
+echo "✓ Initramfs успешно собран и встроен в ядро:"
+ls -lh "$OUT_CPIO" "$OUT_CPIO_GZ" "$REPO_ROOT/kernel/Image"

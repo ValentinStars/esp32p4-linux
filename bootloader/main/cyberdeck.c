@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
+#include <dirent.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -423,6 +424,20 @@ static void msc_event_callback(const msc_host_event_t *event, void *arg)
                 ESP_LOGI(TAG, "✓ USB Flash Drive mounted at /usbdrive!");
                 const char *msg = "\n\033[36m[USB STORAGE] Flash drive connected & mounted at /usbdrive\033[0m\n";
                 cyberdeck_console_write(msg, strlen(msg));
+
+                DIR *d = opendir("/usbdrive");
+                if (d) {
+                    printf("\n--- Файлы на USB-флешке (/usbdrive) ---\n");
+                    struct dirent *de;
+                    int count = 0;
+                    while ((de = readdir(d)) != NULL) {
+                        printf("  [%s] %s\n", (de->d_type == DT_DIR) ? "DIR " : "FILE", de->d_name);
+                        count++;
+                    }
+                    closedir(d);
+                    if (count == 0) printf("  (Флешка пуста)\n");
+                    printf("--------------------------------------\n\n");
+                }
             } else {
                 ESP_LOGE(TAG, "msc_host_vfs_register failed: %s", esp_err_to_name(ret));
             }
