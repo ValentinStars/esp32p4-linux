@@ -1,0 +1,10 @@
+#!/bin/sh
+# /etc/init.d/rcK - Скрипт корректного завершения работы системы
+echo "Остановка сервисов и размонтирование файловых систем..."
+killall5 -15 2>/dev/null || true
+sleep 1
+killall5 -9 2>/dev/null || true
+sync
+umount -a -r 2>/dev/null || true
+echo "Система готова к выключению."
+exit 0

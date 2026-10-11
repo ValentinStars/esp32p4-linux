@@ -1,0 +1,22 @@
+#!/bin/sh
+# cowsay - Классическая утилита консольного юмора для ESP32-P4 Linux
+
+MSG="${*:-Linux on ESP32-P4 RISC-V works!}"
+LEN=${#MSG}
+BORDER_LEN=$((LEN + 2))
+
+DASHES=""
+i=0
+while [ $i -lt $BORDER_LEN ]; do
+    DASHES="${DASHES}-"
+    i=$((i + 1))
+done
+
+echo " ${DASHES} "
+echo "< ${MSG} >"
+echo " ${DASHES} "
+echo "        \   ^__^"
+echo "         \  (oo)\_______"
+echo "            (__)\       )\/\\"
+echo "                ||----w |"
+echo "                ||     ||"

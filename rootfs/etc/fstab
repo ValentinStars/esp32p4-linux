@@ -1,0 +1,8 @@
+# /etc/fstab - Монтирование файловых систем для ESP32-P4 Linux
+# <file system> <mount point>   <type>      <options>       <dump>  <pass>
+proc            /proc           proc        defaults        0       0
+sysfs           /sys            sysfs       defaults        0       0
+devtmpfs        /dev            devtmpfs    defaults        0       0
+devpts          /dev/pts        devpts      mode=0620,gid=5 0       0
+tmpfs           /tmp            tmpfs       mode=1777,size=4M 0     0
+tmpfs           /dev/shm        tmpfs       mode=0777,size=2M 0     0

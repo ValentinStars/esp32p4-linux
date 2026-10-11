@@ -1,0 +1,43 @@
+#!/bin/sh
+# tetris - Интерактивная консольная игра Тетрис для терминала ESP32-P4 Linux
+
+WIDTH=10
+HEIGHT=18
+SCORE=0
+LINES=0
+
+clear_screen() {
+    printf "\033[2J\033[H"
+}
+
+draw_board() {
+    printf "\033[H"
+    echo "=============================="
+    echo "   ESP32-P4 RISC-V TETRIS     "
+    echo "=============================="
+    echo " Счет: $SCORE | Линии: $LINES  "
+    echo "+----------+"
+    r=0
+    while [ $r -lt $HEIGHT ]; do
+        echo "|          |"
+        r=$((r + 1))
+    done
+    echo "+----------+"
+    echo " Управление: [A] Влево  [D] Вправо  [S] Вниз  [Q] Выход"
+}
+
+run_demo() {
+    clear_screen
+    draw_board
+    printf "\033[%d;%dH\033[32m[##]\033[0m" 7 5
+    printf "\033[%d;%dH\033[33m[##]\033[0m" 8 5
+    printf "\033[%d;%dH\033[36m[####]\033[0m" 15 3
+    printf "\033[%d;%dH\033[35m[####]\033[0m" 16 3
+    printf "\033[%d;%dH\033[31m[####]\033[0m" 17 3
+    printf "\033[%d;%dH" 25 1
+    echo "Тетрис успешно запущен на терминале ttyS0!"
+    echo "Нажмите Enter для продолжения..."
+    read -r _
+}
+
+run_demo

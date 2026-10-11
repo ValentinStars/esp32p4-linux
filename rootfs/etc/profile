@@ -1,0 +1,32 @@
+# /etc/profile - Глобальный профиль оболочки для ESP32-P4 Linux
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
+export USER=$(id -un 2>/dev/null || echo root)
+export LOGNAME=$USER
+export HOME=/root
+export SHELL=/bin/bash
+
+# Настройка эмуляции терминала и цветов
+if [ -z "$TERM" ] || [ "$TERM" = "dumb" ]; then
+    export TERM=xterm-256color
+fi
+
+# Цветной и информативный шелл-промпт (PS1)
+if [ "$USER" = "root" ]; then
+    export PS1='\[\033[01;31m\]\u@esp32p4\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]# '
+else
+    export PS1='\[\033[01;32m\]\u@esp32p4\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ '
+fi
+
+# Полезные алиасы
+alias ls='ls --color=auto'
+alias ll='ls -la --color=auto'
+alias l='ls -l --color=auto'
+alias grep='grep --color=auto'
+alias df='df -h'
+alias free='free -m'
+
+# Отображение приветственного баннера при входе
+if [ -f /etc/motd ] && [ -t 0 ]; then
+    cat /etc/motd
+fi

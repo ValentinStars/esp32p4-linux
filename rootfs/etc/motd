@@ -1,0 +1,15 @@
+
+  _____ ____  ____ ____ ____        ____  _  _       _     _                  
+ | ____/ ___||  _ \___ /___ \      |  _ \| || |     | |   (_)_ __  _   ___  __
+ |  _| \___ \| |_) ||_ \ __) |_____| |_) | || |_ ___| |   | | '_ \| | | \ \/ /
+ | |___ ___) |  __/___) / __/_____|  __/|__   _|___| |___| | | | | |_| |>  < 
+ |_____|____/|_|  |____/_____|     |_|     |_|     |_____|_|_| |_|\__,_/_/\_\
+
+ Welcome to Waveshare ESP32-P4-Module-DEV-KIT Linux Environment!
+ * Architecture: RISC-V RV32IMAFCP Dual-Core @ 400MHz
+ * Memory:       16MB/32MB PSRAM (200MHz Hexa-SPI)
+ * Kernel:       Linux 6.9.0-rc1+ with Sv32 MMU / SBI v0.2
+ * Shell:        GNU Bash / Busybox Suite with full TTY job control
+================================================================================
+ Type 'help' for commands, 'sysinfo' for details, 'cowsay' for fun.
+

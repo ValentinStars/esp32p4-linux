@@ -1,0 +1,34 @@
+#!/bin/sh
+# sysinfo - Отчет о состоянии системы и оборудовании ESP32-P4
+
+echo "=========================================================="
+echo "         ESP32-P4 RISC-V LINUX SYSTEM STATUS              "
+echo "=========================================================="
+
+echo "[1] Ядро и ОС:"
+uname -a
+echo ""
+
+echo "[2] Процессор (CPU):"
+if [ -f /proc/cpuinfo ]; then
+    grep -E "model name|isa|mmu|hart|BogoMIPS" /proc/cpuinfo 2>/dev/null || cat /proc/cpuinfo
+else
+    echo "  RISC-V RV32IMAFCP @ 400 MHz"
+fi
+echo ""
+
+echo "[3] Оперативная память:"
+if [ -f /proc/meminfo ]; then
+    grep -E "MemTotal|MemFree|Buffers|Cached|Shmem" /proc/meminfo
+else
+    free -m 2>/dev/null || echo "  PSRAM: 16MB / 32MB"
+fi
+echo ""
+
+echo "[4] Точки монтирования:"
+mount
+echo ""
+
+echo "[5] Время работы (Uptime):"
+uptime 2>/dev/null || cat /proc/uptime 2>/dev/null
+echo "=========================================================="

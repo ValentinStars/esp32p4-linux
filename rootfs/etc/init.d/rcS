@@ -1,0 +1,63 @@
+#!/bin/sh
+# /etc/init.d/rcS - Главный скрипт инициализации системы ESP32-P4 Linux
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+echo "=========================================================="
+echo "  Запуск инициализации ESP32-P4 RISC-V Linux System...   "
+echo "=========================================================="
+
+# 1. Монтирование виртуальных файловых систем
+echo -n "[init] Монтирование devtmpfs, proc, sys, tmpfs... "
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+mount -t tmpfs tmpfs /tmp 2>/dev/null || true
+mkdir -p /dev/pts /dev/shm
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+mount -t tmpfs tmpfs /dev/shm 2>/dev/null || true
+echo "[  OK  ]"
+
+# 2. Инициализация узлов устройств
+if [ ! -e /dev/null ]; then
+    mknod -m 666 /dev/null c 1 3
+fi
+if [ ! -e /dev/zero ]; then
+    mknod -m 666 /dev/zero c 1 5
+fi
+if [ ! -e /dev/console ]; then
+    mknod -m 600 /dev/console c 5 1
+fi
+if [ ! -e /dev/ttyS0 ]; then
+    mknod -m 666 /dev/ttyS0 c 4 64
+fi
+
+# 3. Установка сетевого имени узла (Hostname)
+if [ -f /etc/hostname ]; then
+    hostname -F /etc/hostname
+else
+    hostname esp32p4-linux
+fi
+echo "[init] Имя хоста: $(hostname)"
+
+# 4. Поднятие локального сетевого интерфейса (Loopback)
+echo -n "[init] Настройка сетевого интерфейса lo... "
+ifconfig lo 127.0.0.1 up 2>/dev/null && echo "[  OK  ]" || echo "[ FAIL ]"
+
+# 5. Монтирование внешних файловых систем из /etc/fstab
+echo -n "[init] Монтирование дополнительных разделов... "
+mount -a 2>/dev/null || true
+echo "[  OK  ]"
+
+# 6. Запуск системного логгера klogd / syslogd (если доступны)
+if [ -x /sbin/syslogd ]; then
+    /sbin/syslogd -C256 2>/dev/null || true
+fi
+if [ -x /sbin/klogd ]; then
+    /sbin/klogd 2>/dev/null || true
+fi
+
+echo "=========================================================="
+echo "  Система готова к работе! Переход к терминальной сессии. "
+echo "=========================================================="
+exit 0

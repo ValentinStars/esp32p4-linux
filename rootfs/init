@@ -1,0 +1,20 @@
+#!/bin/sh
+# /init - Первичный процесс запуска Linux (PID 1)
+
+# Монтирование базовых файловых систем
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+
+# Если доступен полноценный init - передаем управление ему
+if [ -x /sbin/init ]; then
+    exec /sbin/init
+fi
+
+# Fallback: запуск /etc/init.d/rcS и вход в командную оболочку
+if [ -x /etc/init.d/rcS ]; then
+    /etc/init.d/rcS
+fi
+
+echo "ESP32-P4 Linux Boot complete. Starting shell..."
+exec /bin/sh
