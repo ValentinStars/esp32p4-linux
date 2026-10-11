@@ -99,9 +99,12 @@ int console_read_bytes(uint8_t *buf, int len)
         return 0;
 }
 
+#include "cyberdeck.h"
+
 void emu_console_write(const char *buf, int len)
 {
         fwrite(buf, 1, len, stdout);
+        cyberdeck_console_write(buf, len);
 }
 
 static uint8_t *psram_base = NULL;

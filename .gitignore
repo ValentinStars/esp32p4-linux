@@ -26,5 +26,7 @@ linux-*/
 .cache/
 sdkconfig.old
 .pio/
+bootloader/managed_components/
+bootloader/dependencies.lock
 __pycache__/
 *.pyc

@@ -196,7 +196,7 @@ static int uart_rx_avail(void)
         return a;
 }
 
-static void uart_rx_push(uint8_t c)
+void uart_rx_push(uint8_t c)
 {
         uint16_t next = (uart_rx_head + 1) % UART_RXBUF_SZ;
 
@@ -439,8 +439,11 @@ static void emu_task(void *arg)
 }
 #endif
 
+#include "cyberdeck.h"
+
 void app_main(void)
 {
+        cyberdeck_init();
 #ifdef CONFIG_EMU_IO_CORE
         // worker first, the emulator spins on it when the tx ring fills up
         xTaskCreatePinnedToCore(io_worker_task, "rv32io", 4096, NULL, 5, NULL, 1);

@@ -1,0 +1,26 @@
+#!/bin/sh
+# Bad Apple Player for Waveshare ESP32-P4 Cyberdeck
+FILE=${1:-/usbdrive/badapple.bin}
+[ -f "$FILE" ] || FILE=/sdcard/badapple.bin
+[ -f "$FILE" ] || FILE=/mnt/sdcard/badapple.bin
+[ -f "$FILE" ] || FILE=/tmp/badapple.bin
+
+if [ ! -f "$FILE" ]; then
+    echo "Bad Apple stream not found!"
+    echo "Please place badapple.bin on USB flash drive (/usbdrive) or MicroSD (/sdcard)"
+    exit 1
+fi
+
+printf "\033[2J\033[H\033[?25l"
+while IFS= read -r line; do
+    case "$line" in
+        "---FRAME---"*)
+            usleep 40000 2>/dev/null || true
+            printf "\033[H"
+            ;;
+        *)
+            printf "%s\n" "$line"
+            ;;
+    esac
+done < "$FILE"
+printf "\033[?25h\n"

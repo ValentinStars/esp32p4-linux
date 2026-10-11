@@ -16,8 +16,9 @@ int main(int argc, char **argv) {
     const char *path = argc > 1 ? argv[1] : DEFAULT_FILE;
     FILE *f = fopen(path, "r");
     if (!f) {
-        /* Попробуем в /mnt/sdcard или /tmp */
-        f = fopen("/mnt/sdcard/badapple.bin", "r");
+        /* Попробуем в /usbdrive, /mnt/sdcard или /tmp */
+        f = fopen("/usbdrive/badapple.bin", "r");
+        if (!f) f = fopen("/mnt/sdcard/badapple.bin", "r");
         if (!f) f = fopen("/tmp/badapple.bin", "r");
     }
 
