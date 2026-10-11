@@ -1,0 +1,89 @@
+/dts-v1/;
+
+/ {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	compatible = "riscv-minimal-nommu";
+	model = "riscv-minimal-nommu,esp32p4";
+
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000,16550a rdinit=/init";
+		stdout-path = "/soc/uart@10000000:115200";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x01000000>; /* 16MB */
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <1000000>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			reg = <0>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv32ima";
+			riscv,isa-base = "rv32i";
+			riscv,isa-extensions = "i", "m", "a";
+			mmu-type = "riscv,none";
+
+			cpu0_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				interrupt-controller;
+				compatible = "riscv,cpu-intc";
+			};
+		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+			};
+		};
+	};
+
+	soc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "simple-bus";
+		ranges;
+
+		uart0: uart@10000000 {
+			compatible = "ns16550a";
+			reg = <0x0 0x10000000 0x0 0x100>;
+			clock-frequency = <16000000>;
+			reg-shift = <0>;
+			reg-io-width = <1>;
+		};
+
+		clint: clint@11000000 {
+			compatible = "sifive,clint0", "riscv,clint0";
+			reg = <0x0 0x11000000 0x0 0x10000>;
+			interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7>;
+		};
+
+		syscon0: syscon@11100000 {
+			compatible = "syscon", "simple-mfd";
+			reg = <0x0 0x11100000 0x0 0x1000>;
+
+			reboot {
+				compatible = "syscon-reboot";
+				offset = <0x0>;
+				value = <0x7777>;
+				mask = <0xffff>;
+			};
+
+			poweroff {
+				compatible = "syscon-poweroff";
+				offset = <0x0>;
+				value = <0x5555>;
+				mask = <0xffff>;
+			};
+		};
+	};
+};
