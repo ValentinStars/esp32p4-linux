@@ -1,0 +1,62 @@
+#!/bin/sh
+# fastfetch - System information tool for Waveshare ESP32-P4 RISC-V Linux
+
+C="\033[1;36m"
+R="\033[1;31m"
+G="\033[1;32m"
+Y="\033[1;33m"
+B="\033[1;34m"
+M="\033[1;35m"
+W="\033[1;37m"
+Z="\033[0m"
+
+# Pure shell extraction without subshells/forks
+read W1 W2 K_VER REST < /proc/version 2>/dev/null || K_VER="6.9.0-uc"
+read UP REST < /proc/uptime 2>/dev/null || UP="10.0"
+UP_S=${UP%%.*}
+UP_M=$((UP_S / 60))
+UP_H=$((UP_M / 60))
+UP_M_REM=$((UP_M % 60))
+UP_S_REM=$((UP_S % 60))
+
+if [ "$UP_H" -gt 0 ]; then
+    UP_STR="${UP_H}h ${UP_M_REM}m"
+elif [ "$UP_M" -gt 0 ]; then
+    UP_STR="${UP_M}m ${UP_S_REM}s"
+else
+    UP_STR="${UP_S_REM}s"
+fi
+
+M_TOT=16
+M_FREE=8
+if [ -f /proc/meminfo ]; then
+    while read K V U; do
+        case "$K" in
+            MemTotal:) M_TOT=$((V / 1024)) ;;
+            MemFree:)  M_FREE=$((V / 1024)) ;;
+        esac
+    done < /proc/meminfo
+fi
+M_USED=$((M_TOT - M_FREE))
+[ "$M_USED" -lt 0 ] && M_USED=1
+
+P_CNT=0
+for d in /proc/[0-9]*; do
+    [ -d "$d" ] && P_CNT=$((P_CNT + 1))
+done
+[ "$P_CNT" -eq 0 ] && P_CNT=1
+
+printf "\n"
+printf "%b       _______       %broot%b@%besp32p4%b\n" "$C" "$W" "$Z" "$C" "$Z"
+printf "%b      / _____ \\      %b------------------------------------%b\n" "$C" "$W" "$Z"
+printf "%b     / /     \\ \\     %bOS:%b      Linux NOMMU (RV32IMA)\n" "$C" "$C" "$Z"
+printf "%b    / /       \\ \\    %bHost:%b    Waveshare ESP32-P4-Module-DEV-KIT\n" "$C" "$C" "$Z"
+printf "%b   / /   %bRISC-V%b \\ \\   %bKernel:%b  %s\n" "$C" "$R" "$C" "$C" "$Z" "$K_VER"
+printf "%b  / /             \\ \\  %bUptime:%b  %s\n" "$C" "$C" "$Z" "$UP_STR"
+printf "%b / /___      ______\\ \\ %bShell:%b   BusyBox ash\n" "$C" "$C" "$Z"
+printf "%b/_____/     /________/%bCPU:%b     ESP32-P4 Dual-Core RISC-V @ 400 MHz\n" "$C" "$C" "$Z"
+printf "                     %bMemory:%b  %d MB / %d MB PSRAM\n" "$C" "$Z" "$M_USED" "$M_TOT"
+printf "                     %bTasks:%b   %d processes\n" "$C" "$Z" "$P_CNT"
+printf "\n"
+printf "   %b███%b███%b███%b███%b███%b███%b███%b\n" "$R" "$G" "$Y" "$B" "$M" "$C" "$W" "$Z"
+printf "\n"
