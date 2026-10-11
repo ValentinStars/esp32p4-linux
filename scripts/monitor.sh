@@ -7,7 +7,9 @@ BAUD="${2:-115200}"
 
 echo "Подключение к $PORT на скорости $BAUD..."
 
-if command -v picocom >/dev/null 2>&1; then
+if [ -f "$SCRIPT_DIR/term.py" ]; then
+    python3 "$SCRIPT_DIR/term.py" "$PORT" "$BAUD"
+elif command -v picocom >/dev/null 2>&1; then
     picocom -b "$BAUD" --imap lfcrlf "$PORT"
 elif command -v minicom >/dev/null 2>&1; then
     minicom -D "$PORT" -b "$BAUD"

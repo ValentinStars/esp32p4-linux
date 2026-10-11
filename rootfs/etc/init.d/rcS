@@ -57,6 +57,11 @@ if [ -x /sbin/klogd ]; then
     /sbin/klogd 2>/dev/null || true
 fi
 
+# 7. Настройка TTY (Backspace, CRLF, эхо)
+stty -F /dev/ttyS0 erase '^?' 2>/dev/null || true
+stty -F /dev/console erase '^?' 2>/dev/null || true
+stty erase '^?' 2>/dev/null || true
+
 echo "=========================================================="
 echo "  Система готова к работе! Переход к терминальной сессии. "
 echo "=========================================================="
