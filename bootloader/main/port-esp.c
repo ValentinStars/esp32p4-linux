@@ -90,7 +90,6 @@ int console_read_bytes(uint8_t *buf, int len)
         if (cnt > 0) {
                 if (cnt > (uint32_t)len) cnt = len;
                 uart_ll_read_rxfifo(&UART0, buf, cnt);
-                printf("[HW_UART_RX: %lu bytes: '%c'(0x%02x)]\n", cnt, (buf[0] >= 32 && buf[0] < 127) ? buf[0] : '?', buf[0]);
                 return (int)cnt;
         }
 

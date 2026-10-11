@@ -2,7 +2,7 @@
 # monitor.sh - Подключение к терминальной консоли ESP32-P4 Linux
 set -euo pipefail
 
-PORT="${1:-/dev/ttyUSB0}"
+PORT="${1:-/dev/ttyACM0}"
 BAUD="${2:-115200}"
 
 echo "Подключение к $PORT на скорости $BAUD..."

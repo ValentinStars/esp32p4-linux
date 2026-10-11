@@ -700,9 +700,7 @@ static uint32_t HandleControlLoad(uint32_t addy)
         case 0x10000000:
             if (uart_lcr & 0x80) return uart_divisor & 0xFF;
             if (uart_rx_avail()) {
-                uint8_t c = uart_rx_pop();
-                printf("[GUEST_POP: '%c'(0x%02x)]\n", (c >= 32 && c < 127) ? c : '?', c);
-                return c;
+                return uart_rx_pop();
             }
             return 0;
         case 0x10000001:
@@ -727,15 +725,7 @@ static void HandleOtherCSRWrite(uint8_t *image, uint16_t csrno, uint32_t value)
 {
         uint32_t ptrstart, ptrend;
 
-        if (csrno != 0x136 && csrno != 0x137 && csrno != 0x138 &&
-                csrno != 0x139 && csrno != 0x3a0 && csrno != 0x3b0 && csrno != 0xf14) {
-                static int csr_write_count = 0;
-        if (csr_write_count++ < 20) {
-                printf("[CSR_WRITE] csr=0x%03x value=0x%08" PRIx32 "\n", csrno, value);
-        }
-                }
-
-                switch (csrno) {
+        switch (csrno) {
                         case 0x136:
                                 printf("%d", (int)value);
                                 fflush(stdout);
@@ -768,16 +758,5 @@ static void HandleOtherCSRWrite(uint8_t *image, uint16_t csrno, uint32_t value)
 
 static int32_t HandleOtherCSRRead(uint8_t *image, uint16_t csrno)
 {
-        int32_t result = 0;
-
-        if (csrno != 0x140 && csrno != 0xC00 && csrno != 0x3a0 &&
-                csrno != 0x3b0 && csrno != 0xf14 && result == 0) {
-                static int csr_warn_count = 0;
-        if (csr_warn_count++ < 20) {
-                printf("[CSR_READ] Unhandled csr=0x%03x -> 0x%08" PRIx32 "\n",
-                           csrno, (uint32_t)result);
-        }
-                }
-
-                return result;
+        return 0;
 }
