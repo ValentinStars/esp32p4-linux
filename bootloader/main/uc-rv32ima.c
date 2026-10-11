@@ -461,6 +461,8 @@ static void emu_run(void)
                 return;
         }
 
+        sdcard_init();
+
         size_t psram_size = psram_get_size();
         if (ram_amt > psram_size) {
                 printf("ram_amt %u exceeds psram, cutting to %zu\n",

@@ -25,3 +25,6 @@ linux-*/
 *.tmp
 .cache/
 sdkconfig.old
+.pio/
+__pycache__/
+*.pyc

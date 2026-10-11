@@ -18,4 +18,6 @@ int console_read_bytes(uint8_t *buf, int len);
 void emu_console_write(const char *buf, int len);
 void *jit_exec_alloc(int bytes);
 void jit_exec_commit(void *code, int bytes);
+int sdcard_init(void);
+void *sdcard_get_handle(void);
 #endif /* PORT_H */

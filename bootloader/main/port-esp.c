@@ -23,6 +23,9 @@
 #include "hal/usb_serial_jtag_ll.h"
 #include "psram.h"
 #include "port.h"
+#include "driver/sdmmc_host.h"
+#include "sdmmc_cmd.h"
+#include "esp_vfs_fat.h"
 
 /*
  * Executable memory for the block JIT.  The code buffer comes out of the
@@ -361,4 +364,38 @@ int load_images(int ram_size, int *kern_len)
         verify_kernel_header();
 
         return 0;
+}
+
+static sdmmc_card_t *s_sd_card = NULL;
+
+int sdcard_init(void)
+{
+        printf("\n=== Initializing MicroSD (SDMMC Slot 1) ===\n");
+        esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+                .format_if_mount_failed = false,
+                .max_files = 5,
+                .allocation_unit_size = 16 * 1024
+        };
+        sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+        host.slot = SDMMC_HOST_SLOT_1;
+        host.max_freq_khz = SDMMC_FREQ_DEFAULT;
+
+        sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+        slot_config.width = 4;
+        slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+
+        esp_err_t ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &s_sd_card);
+        if (ret != ESP_OK) {
+                printf("MicroSD: No card detected or mount failed (%s)\n", esp_err_to_name(ret));
+                return -1;
+        }
+
+        printf("✓ MicroSD Card Mounted successfully at /sdcard!\n");
+        sdmmc_card_print_info(stdout, s_sd_card);
+        return 0;
+}
+
+void *sdcard_get_handle(void)
+{
+        return s_sd_card;
 }
