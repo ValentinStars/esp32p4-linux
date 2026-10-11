@@ -1,13 +1,4 @@
-# /etc/inittab - Конфигурация BusyBox Init для ESP32-P4 RISC-V Linux
-
-# 1. Запуск сценариев инициализации системы
 ::sysinit:/etc/init.d/rcS
-
-# 2. Единственная интерактивная консоль на системном терминале
-::respawn:-/bin/sh
-
-# 3. Перехват комбинации Ctrl+Alt+Del (программная перезагрузка)
-::ctrlaltdel:/sbin/reboot
-
-# 4. Процедура корректного завершения работы (Shutdown)
+ttyS0::respawn:-/bin/sh
+::ctrlaltdel:/bin/reboot
 ::shutdown:/bin/umount -a -r
