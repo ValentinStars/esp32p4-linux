@@ -1,5 +1,6 @@
 idf_component_register(SRCS "uc-rv32ima.c"
 			"port-esp.c"
+			"jit-call.S"
 		       LDFRAGMENTS "link.lf"
                        INCLUDE_DIRS ".")
 

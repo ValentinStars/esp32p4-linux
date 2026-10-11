@@ -662,14 +662,14 @@ MINIRV32_DECORATE int32_t MiniRV32IMAStep( struct MiniRV32IMAState * state, uint
                                                 }
                                                 else if( ( ( csrno & 0xff ) == 0x02 ) && csrno != 0x102 )  // MRET
                                                 {
-                                                        //https://raw.githubusercontent.com/riscv/virtual-memory/main/specs/663-Svpbmt.pdf
-                                                        //Table 7.6. MRET then in mstatus/mstatush sets MPV=0, MPP=0, MIE=MPIE, and MPIE=1. La
-                                                        // Should also update mstatus to reflect correct mode.
+                                                        // RISC-V Privileged Spec: MRET sets MPP=0, MIE=MPIE, MPIE=1, preserves other bits.
                                                         uint32_t startmstatus = CSR( mstatus );
-                                                        uint32_t startextraflags = CSR( extraflags );
-                                                        SETCSR( mstatus , (( startmstatus & 0x80) >> 4) | ((startextraflags&3) << 11) | 0x80 );
-                                                        SETCSR( extraflags, (startextraflags & ~3) | ((startmstatus >> 11) & 3) );
-                                                        pc = CSR( mepc ) -4;
+                                                        uint32_t mpp = ( startmstatus >> 11 ) & 3;
+                                                        uint32_t mpie = ( startmstatus >> 7 ) & 1;
+                                                        uint32_t newmstatus = ( startmstatus & ~0x1888 ) | ( mpie << 3 ) | ( 1 << 7 );
+                                                        SETCSR( mstatus, newmstatus );
+                                                        SETCSR( extraflags, ( CSR( extraflags ) & ~3 ) | mpp );
+                                                        pc = CSR( mepc ) - 4;
                                                 }
                                                 else if( csrno == 0x102 ) // SRET
                                                 {
@@ -830,9 +830,14 @@ MINIRV32_DECORATE int32_t MiniRV32IMAStep( struct MiniRV32IMAState * state, uint
                                 SETCSR( mtval, (trap > 5 && trap <= 8)? rval : pc );
                         }
                         SETCSR( mepc, pc ); //TRICKY: The kernel advances mepc automatically.
-                        //CSR( mstatus ) & 8 = MIE, & 0x80 = MPIE
-                        // On an interrupt, the system moves current MIE into MPIE
-                        SETCSR( mstatus, (( CSR( mstatus ) & 0x08) << 4) | (( CSR( extraflags ) & 3 ) << 11) );
+                        // RISC-V Privileged Spec: On trap into M-mode,
+                        // mstatus.MPIE = mstatus.MIE, mstatus.MIE = 0, mstatus.MPP = previous privilege mode.
+                        // Other bits in mstatus must be preserved!
+                        uint32_t cur_priv = CSR( extraflags ) & 3;
+                        uint32_t ms = CSR( mstatus );
+                        uint32_t mie = ( ms >> 3 ) & 1;
+                        ms = ( ms & ~0x1888 ) | ( mie << 7 ) | ( cur_priv << 11 );
+                        SETCSR( mstatus, ms );
                         pc = (CSR( mtvec ) - 4);
 
                         // If trapping, always enter machine mode.

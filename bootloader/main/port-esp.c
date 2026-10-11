@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <inttypes.h>
 
 #include "freertos/FreeRTOS.h"
@@ -18,6 +19,7 @@
 #include "esp_heap_caps.h"
 #include "esp_partition.h"
 #include "driver/uart.h"
+#include "hal/uart_ll.h"
 #include "hal/usb_serial_jtag_ll.h"
 #include "psram.h"
 #include "port.h"
@@ -27,6 +29,14 @@
  * internal instruction RAM, every finished block gets flushed from the
  * data side of the cache so instruction fetch sees it.
  */
+#ifndef ESP_CACHE_MSYNC_FLAG_TYPE_INSTRAM
+#ifdef ESP_CACHE_MSYNC_FLAG_TYPE_INST
+#define ESP_CACHE_MSYNC_FLAG_TYPE_INSTRAM ESP_CACHE_MSYNC_FLAG_TYPE_INST
+#else
+#define ESP_CACHE_MSYNC_FLAG_TYPE_INSTRAM 0
+#endif
+#endif
+
 void *jit_exec_alloc(int bytes)
 {
         return heap_caps_malloc(bytes, MALLOC_CAP_EXEC);
@@ -65,29 +75,29 @@ int IsKBHit(void)
  * Console input, drains the usb serial jtag fifo and the console uart in
  * one go.  Both are non blocking, whoever has data wins.
  */
-static int uart0_installed = 0;
+static int stdin_configured = 0;
 
 int console_read_bytes(uint8_t *buf, int len)
 {
         int n = 0;
 #if CONFIG_EMU_CONSOLE_USB_JTAG
         n = usb_serial_jtag_ll_read_rxfifo(buf, len);
+        if (n > 0)
+                return n;
 #endif
-#if CONFIG_EMU_CONSOLE_UART0
-        if (n == 0) {
-                if (!uart0_installed) {
-                        uart_driver_install(CONFIG_ESP_CONSOLE_UART_NUM, 1024, 0, 0, NULL, 0);
-                        uart0_installed = 1;
-                }
-                int r = uart_read_bytes(CONFIG_ESP_CONSOLE_UART_NUM, buf, len, 0);
-                if (r > 0)
-                        n = r;
+
+        uint32_t cnt = uart_ll_get_rxfifo_len(&UART0);
+        if (cnt > 0) {
+                if (cnt > (uint32_t)len) cnt = len;
+                uart_ll_read_rxfifo(&UART0, buf, cnt);
+                printf("[HW_UART_RX: %lu bytes: '%c'(0x%02x)]\n", cnt, (buf[0] >= 32 && buf[0] < 127) ? buf[0] : '?', buf[0]);
+                return (int)cnt;
         }
-#endif
-        return n;
+
+        return 0;
 }
 
-void console_write(const char *buf, int len)
+void emu_console_write(const char *buf, int len)
 {
         fwrite(buf, 1, len, stdout);
 }
@@ -206,19 +216,20 @@ void verify_kernel_header(void)
         printf("Expected: 0x05c0006f (j 0x5c)\n\n");
 }
 
-int load_dtb(uint32_t ram_size)
+uint32_t load_dtb(uint32_t ram_size)
 {
         const esp_partition_t *dtb_partition;
         esp_err_t err;
         uint32_t addr;
-        char dmabuf[64];
+        char dmabuf[512];
         size_t remaining;
         uint8_t hdr[4];
-        uint32_t guest_addr = 0x80000000 + ram_size - 0x10000;
+        uint32_t dtb_offset = 0x400000; /* 4MB into PSRAM, safe inside early mem */
+        uint32_t guest_addr = 0x80000000 + dtb_offset;
 
         dtb_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
-                                                                                           ESP_PARTITION_SUBTYPE_ANY,
-                                                                                           "dtb");
+                                                 ESP_PARTITION_SUBTYPE_ANY,
+                                                 "dtb");
         if (dtb_partition == NULL) {
                 printf("no dtb partition, kernel falls back to its builtin dtb\n");
                 return 0;
@@ -236,16 +247,16 @@ int load_dtb(uint32_t ram_size)
         addr = 0;
         remaining = dtb_partition->size;
 
-        while (remaining >= 64) {
-                err = esp_partition_read(dtb_partition, addr, dmabuf, 64);
+        while (remaining >= sizeof(dmabuf)) {
+                err = esp_partition_read(dtb_partition, addr, dmabuf, sizeof(dmabuf));
                 if (err != ESP_OK) {
                         printf("ERROR: Failed to read dtb at offset %lu: %s\n",
                                    (unsigned long)addr, esp_err_to_name(err));
                         return 0;
                 }
-                psram_write((ram_size - 0x10000) + addr, dmabuf, 64);
-                addr += 64;
-                remaining -= 64;
+                psram_write(dtb_offset + addr, dmabuf, sizeof(dmabuf));
+                addr += sizeof(dmabuf);
+                remaining -= sizeof(dmabuf);
         }
 
         if (remaining > 0) {
@@ -255,7 +266,7 @@ int load_dtb(uint32_t ram_size)
                                    esp_err_to_name(err));
                         return 0;
                 }
-                psram_write((ram_size - 0x10000) + addr, dmabuf, remaining);
+                psram_write(dtb_offset + addr, dmabuf, remaining);
         }
 
         printf("dtb loaded at 0x%08" PRIx32 "\n", guest_addr);
@@ -267,14 +278,14 @@ int load_images(int ram_size, int *kern_len)
         const esp_partition_t *kernel_partition;
         esp_err_t err;
         uint32_t addr;
-        char dmabuf[64];
+        char dmabuf[4096];
         size_t partition_size;
 
         printf("\n=== Loading Kernel from Flash ===\n");
 
         kernel_partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
-                                                                                                ESP_PARTITION_SUBTYPE_ANY,
-                                                                                         "kernel");
+                                                    ESP_PARTITION_SUBTYPE_ANY,
+                                                    "kernel");
         if (kernel_partition == NULL) {
                 printf("ERROR: 'kernel' partition not found!\n");
                 printf("Make sure partition table has 'kernel' partition\n");
@@ -288,41 +299,46 @@ int load_images(int ram_size, int *kern_len)
         printf("  Size: %zu bytes (%.2f MB)\n", partition_size,
                    partition_size / (1024.0 * 1024.0));
 
-        if (partition_size > ram_size) {
-                printf("WARNING: Partition size (%zu) > RAM size (%d)\n",
-                           partition_size, ram_size);
-                printf("Will only load first %d bytes\n", ram_size);
-                partition_size = ram_size;
+        /* Read first 64 bytes to inspect RISC-V image header */
+        uint8_t hdr[64];
+        err = esp_partition_read(kernel_partition, 0, hdr, 64);
+        if (err == ESP_OK && hdr[0x30] == 'R' && hdr[0x31] == 'I' &&
+            hdr[0x32] == 'S' && hdr[0x33] == 'C' && hdr[0x34] == 'V') {
+                uint32_t image_size = *(uint32_t*)(hdr + 0x10);
+                if (image_size > 0 && image_size < partition_size) {
+                        printf("RISC-V Image header: actual kernel size = %" PRIu32 " bytes (%.2f MB)\n",
+                               image_size, (double)image_size / (1024.0 * 1024.0));
+                        partition_size = (size_t)image_size;
+                }
         }
 
-        if (partition_size > psram_get_size()) {
-                printf("WARNING: Partition size (%zu) > PSRAM size (%zu)\n",
-                           partition_size, psram_get_size());
+        if (partition_size > ram_size)
+                partition_size = ram_size;
+
+        if (partition_size > psram_get_size())
                 partition_size = psram_get_size();
-        }
 
         if (kern_len)
                 *kern_len = partition_size;
 
-        printf("\nLoading kernel from flash to PSRAM...\n");
-        printf("This will take a moment...\n");
+        printf("Loading %zu bytes from flash to PSRAM...\n", partition_size);
 
         addr = 0;
         size_t remaining = partition_size;
 
-        while (remaining >= 64) {
-                err = esp_partition_read(kernel_partition, addr, dmabuf, 64);
+        while (remaining >= sizeof(dmabuf)) {
+                err = esp_partition_read(kernel_partition, addr, dmabuf, sizeof(dmabuf));
                 if (err != ESP_OK) {
                         printf("\nERROR: Failed to read from flash at offset %lu: %s\n",
                                    (unsigned long)addr, esp_err_to_name(err));
                         return -1;
                 }
 
-                psram_write(addr, dmabuf, 64);
-                addr += 64;
-                remaining -= 64;
+                psram_write(addr, dmabuf, sizeof(dmabuf));
+                addr += sizeof(dmabuf);
+                remaining -= sizeof(dmabuf);
 
-                if ((addr % (64 * 1024)) == 0) {
+                if ((addr % (256 * 1024)) == 0) {
                         printf(".");
                         fflush(stdout);
                 }
@@ -336,11 +352,12 @@ int load_images(int ram_size, int *kern_len)
                         return -1;
                 }
                 psram_write(addr, dmabuf, remaining);
+                addr += remaining;
         }
 
         printf("\n✓ Kernel loaded successfully from flash!\n");
         printf("Total loaded: %zu bytes (%.2f MB)\n",
-                   partition_size, partition_size / (1024.0 * 1024.0));
+                   addr, addr / (1024.0 * 1024.0));
 
         verify_kernel_header();
 

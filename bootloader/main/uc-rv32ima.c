@@ -263,7 +263,7 @@ void console_flush(void)
                         chunk[i] = console_txbuf[console_tx_tail];
                         console_tx_tail = (console_tx_tail + 1) % CONSOLE_TXBUF_SZ;
                 }
-                console_write(chunk, used);
+                emu_console_write(chunk, used);
         }
 }
 
@@ -277,9 +277,13 @@ static uint32_t plic_enable[2];
 static uint32_t plic_threshold[2];
 static uint32_t plic_priority[32];
 
+static volatile int uart_thre_pending = 1;
+
 static int plic_uart_line(void)
 {
-        return (uart_ier & 1) && uart_rx_avail();
+        int rx = (uart_ier & 1) && uart_rx_avail();
+        int tx = (uart_ier & 2) && uart_thre_pending;
+        return rx || tx;
 }
 
 static int plic_irq_pending(void)
@@ -430,7 +434,7 @@ static void io_worker_task(void *arg)
 static void emu_task(void *arg)
 {
         (void)arg;
-        app_main();
+        emu_run();
         vTaskDelete(NULL);
 }
 #endif
@@ -486,7 +490,10 @@ static void emu_run(void)
         core.medeleg = 0xB1FF; // same exception split as OpenSBI
         core.satp = 0; // bare, the kernel brings up Sv32 itself
 #else
-        core.extraflags |= 3;
+        core.extraflags = 3;
+        core.mideleg = 0;
+        core.medeleg = 0;
+        core.satp = 0;
 #endif
 
         uint64_t lastTime = GetTimeMicroseconds();
@@ -551,6 +558,10 @@ static void emu_run(void)
                 }
 
                 loop_count++;
+                if ((loop_count % 500000) == 0) {
+                        printf("[HEARTBEAT] loops=%d PC=0x%08" PRIx32 " sp=0x%08" PRIx32 " wfi=%d\n",
+                               loop_count, core.pc, core.regs[2], in_wfi);
+                }
 
                 if (trace_enabled > 0) {
                         uint32_t ofs = core.pc - MINIRV32_RAM_IMAGE_OFFSET;
@@ -657,11 +668,18 @@ static uint32_t HandleControlStore(uint32_t addy, uint32_t val)
     switch (addy) {
         case 0x10000000:
             if (uart_lcr & 0x80) uart_divisor = (uart_divisor & 0xFF00) | (val & 0xFF);
-            else console_tx_push(val);
+            else {
+                console_tx_push(val);
+                uart_thre_pending = 1;
+            }
             break;
         case 0x10000001:
             if (uart_lcr & 0x80) uart_divisor = (uart_divisor & 0x00FF) | ((val & 0xFF) << 8);
-            else uart_ier = val;
+            else {
+                if ((val & 2) && !(uart_ier & 2))
+                    uart_thre_pending = 1;
+                uart_ier = val;
+            }
             break;
         case 0x10000002: uart_fcr = val; break;
         case 0x10000003: uart_lcr = val; break;
@@ -681,12 +699,21 @@ static uint32_t HandleControlLoad(uint32_t addy)
     switch (addy) {
         case 0x10000000:
             if (uart_lcr & 0x80) return uart_divisor & 0xFF;
-            return uart_rx_avail() ? uart_rx_pop() : 0;
+            if (uart_rx_avail()) {
+                uint8_t c = uart_rx_pop();
+                printf("[GUEST_POP: '%c'(0x%02x)]\n", (c >= 32 && c < 127) ? c : '?', c);
+                return c;
+            }
+            return 0;
         case 0x10000001:
             if (uart_lcr & 0x80) return (uart_divisor >> 8) & 0xFF;
             return uart_ier;
-        case 0x10000002: // IIR, rx interrupt pending when the ring has data
+        case 0x10000002: // IIR: rx interrupt has priority 2 (0x04), THRE has priority 3 (0x02)
             if ((uart_ier & 1) && uart_rx_avail()) return 0x04;
+            if ((uart_ier & 2) && uart_thre_pending) {
+                uart_thre_pending = 0;
+                return 0x02;
+            }
             return 0xC1;
         case 0x10000003: return uart_lcr;
         case 0x10000004: return uart_mcr;
