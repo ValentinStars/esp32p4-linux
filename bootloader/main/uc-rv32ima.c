@@ -558,10 +558,10 @@ static void emu_run(void)
                 }
 
                 loop_count++;
-                if ((loop_count % 500000) == 0) {
+                /* if ((loop_count % 500000) == 0) {
                         printf("[HEARTBEAT] loops=%d PC=0x%08" PRIx32 " sp=0x%08" PRIx32 " wfi=%d\n",
                                loop_count, core.pc, core.regs[2], in_wfi);
-                }
+                } */
 
                 if (trace_enabled > 0) {
                         uint32_t ofs = core.pc - MINIRV32_RAM_IMAGE_OFFSET;
