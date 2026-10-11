@@ -2,6 +2,7 @@
 # monitor.sh - Подключение к терминальной консоли ESP32-P4 Linux
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT="${1:-/dev/ttyACM0}"
 BAUD="${2:-115200}"
 
@@ -18,6 +19,6 @@ elif command -v screen >/dev/null 2>&1; then
 elif command -v python3 >/dev/null 2>&1; then
     python3 -m serial.tools.miniterm "$PORT" "$BAUD"
 else
-    echo "Ошибка: не найден ни один терминальный клиент (picocom, minicom, screen, miniterm)!"
+    echo "Ошибка: не найден ни один терминальный клиент (term.py, picocom, minicom, screen, miniterm)!"
     exit 1
 fi
